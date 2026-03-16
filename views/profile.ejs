@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Profil | Univ-FIT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .mono { font-family: 'Space Mono', monospace; }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .glass-dark {
+            background: rgba(7, 13, 26, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(16px); }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        .input-field {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.35);
+            transition: all 0.25s;
+        }
+        .input-field:focus {
+            background: rgba(22, 33, 55, 0.8);
+            border-color: rgba(6, 182, 212, 0.6);
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.8), rgba(59, 130, 246, 0.8));
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            transition: all 0.25s;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 1), rgba(59, 130, 246, 1));
+            box-shadow: 0 0 30px -5px rgba(6, 182, 212, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(71, 85, 105, 0.2);
+            border: 1px solid rgba(71, 85, 105, 0.35);
+            transition: all 0.25s;
+        }
+        .btn-secondary:hover {
+            background: rgba(71, 85, 105, 0.4);
+            border-color: rgba(71, 85, 105, 0.6);
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.25); border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 text-slate-100">
+    <!-- ======================== HEADER ======================== -->
+    <header class="flex justify-between items-center px-6 py-4 z-10 border-b border-slate-700/30 glass-dark">
+        <div class="flex items-center gap-3">
+    <a href="/">
+        <img src="/images/logo66.png" alt="Logo UNIV-FIT" class="cursor-pointer hover:opacity-80 transition-opacity" style="height:50px;">
+    </a>
+</div>
+
+        <h2 class="text-lg font-bold text-cyan-400">Mon Profil</h2>
+
+        <div class="flex items-center gap-3">
+            <a href="/" title="Retour au dashboard" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/50 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all">
+                ← 
+            </a>
+            <a href="/auth/logout" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/50 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                <i class="ph ph-sign-out"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- ======================== MAIN ======================== -->
+    <main class="flex-1 overflow-auto p-5 min-h-screen">
+        <div class="max-w-4xl mx-auto">
+            <!-- Profil Card Principal -->
+            <div class="glass rounded-2xl p-8 mb-6 fade-in-up">
+                <!-- Avatar et Infos Principales -->
+                <div class="flex flex-col md:flex-row items-center gap-8 mb-8 pb-8 border-b border-slate-700/30">
+                    <div class="relative">
+                        <img src="https://api.dicebear.com/7.x/shapes/svg?seed=<%= user.username %>" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-cyan-500/60 bg-slate-800 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
+                        <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-[#070d1a]"></div>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-black text-slate-100 mb-2"><%= user.username %></h1>
+                        <p class="text-cyan-400 mb-3"><%= user.email %></p>
+                        <div class="flex flex-wrap gap-3">
+                            <% const goalLabels = { prise_de_masse: '💪 Prise de masse', perte_de_poids: '🔥 Perte de poids', force: '🏋️ Force', endurance: '🏃 Endurance', remise_en_forme: '✨ Remise en forme' }; %>
+                            <% const levelLabels = { debutant: '🌱 Débutant', intermediaire: '⚡ Intermédiaire', avance: '🏆 Athlète' }; %>
+                            <span class="px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium">
+                                <%= goalLabels[user.profile.goal] || '🎯 Objectif' %>
+                            </span>
+                            <span class="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-medium">
+                                <%= levelLabels[user.profile.level] || 'Athlète' %>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Rapides -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 pb-8 border-b border-slate-700/30">
+                    <div class="text-center p-4 glass-dark rounded-lg">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-2 mono">Séances</p>
+                        <p class="text-2xl font-black text-cyan-400"><%= user.stats.totalSessions %></p>
+                    </div>
+                    <div class="text-center p-4 glass-dark rounded-lg">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-2 mono">Exercices</p>
+                        <p class="text-2xl font-black text-blue-400"><%= user.stats.totalExercises %></p>
+                    </div>
+                    <div class="text-center p-4 glass-dark rounded-lg">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-2 mono">Streak</p>
+                        <p class="text-2xl font-black text-emerald-400"><%= user.stats.streak %> 🔥</p>
+                    </div>
+                    <div class="text-center p-4 glass-dark rounded-lg">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-2 mono">Sessions/Semaine</p>
+                        <p class="text-2xl font-black text-orange-400"><%= user.profile.sessionsPerWeek %></p>
+                    </div>
+                </div>
+
+                <!-- Weight Tracking Section -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 pb-8 border-b border-slate-700/30">
+                    <div class="text-center p-6 glass-dark rounded-lg border border-purple-500/20">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-3 mono">Poids Actuel</p>
+                        <p class="text-3xl font-black text-purple-400 mb-1"><%= user.profile.weight || '—' %> <span class="text-sm">kg</span></p>
+                        <p class="text-xs text-slate-500">Suivi corporel</p>
+                    </div>
+                    <div class="text-center p-6 glass-dark rounded-lg border border-pink-500/20">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-3 mono">Taille</p>
+                        <p class="text-3xl font-black text-pink-400 mb-1"><%= user.profile.height || '—' %> <span class="text-sm">cm</span></p>
+                        <p class="text-xs text-slate-500">Dernière mesure</p>
+                    </div>
+                    <div class="text-center p-6 glass-dark rounded-lg border border-yellow-500/20">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-3 mono">IMC</p>
+                        <%
+                        let imc = null, imcLabel = '—', imcColor = 'text-yellow-400';
+                        if (user.profile.weight && user.profile.height) {
+                            imc = Math.round(user.profile.weight / Math.pow(user.profile.height/100, 2) * 10) / 10;
+                            if (imc < 18.5)      { imcLabel = 'Sous-poids'; imcColor = 'text-blue-400'; }
+                            else if (imc < 25)   { imcLabel = 'Normal ✓';   imcColor = 'text-green-400'; }
+                            else if (imc < 30)   { imcLabel = 'Surpoids';   imcColor = 'text-yellow-400'; }
+                            else                 { imcLabel = 'Obésité';    imcColor = 'text-red-400'; }
+                        }
+                        %>
+                        <p class="text-3xl font-black <%= imcColor %> mb-1"><%= imc || '—' %></p>
+                        <p class="text-xs text-slate-500"><%= imcLabel %></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire de Modification -->
+            <div class="glass rounded-2xl p-8">
+                <h2 class="text-2xl font-black text-slate-100 mb-6">Modifier mon profil</h2>
+                
+                <!-- Quick Weight Update -->
+                <div class="mb-8 pb-8 border-b border-slate-700/30 glass-dark rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-purple-400 mb-4">Mise à jour rapide du poids</h3>
+                    <div class="flex flex-col sm:flex-row gap-3 items-end">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Poids actuel (kg)</label>
+                            <input type="number" id="quickWeight" step="0.1" value="<%= user.profile.weight || '' %>" class="w-full px-4 py-3 rounded-lg input-field text-slate-100 text-lg font-bold" placeholder="Ex: 75.5">
+                        </div>
+                        <button type="button" onclick="updateQuickWeight()" class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:brightness-110 text-white font-bold rounded-lg transition-all">
+                            Mettre à jour
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Weight Evolution Chart -->
+                <div class="mb-8 glass-dark rounded-xl p-6 border border-purple-500/20">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-purple-400">📊 Évolution du poids</h3>
+                        <span class="text-xs font-bold text-slate-400 mono">Derniers 30 jours</span>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-700/30">
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-500 mono uppercase mb-1">Actuel</p>
+                            <p class="text-lg font-black text-purple-400" id="weightCurrent"><%= user.profile.weight || '—' %> kg</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-500 mono uppercase mb-1">Min (30j)</p>
+                            <p class="text-lg font-black text-blue-400" id="weightMin">—</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-500 mono uppercase mb-1">Max (30j)</p>
+                            <p class="text-lg font-black text-orange-400" id="weightMax">—</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" action="/profile" class="space-y-6">
+                    <!-- Section Informations Personnelles -->
+                    <div>
+                        <h3 class="text-lg font-bold text-cyan-400 mb-4">Informations Personnelles</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Âge</label>
+                                <input type="number" name="age" value="<%= user.profile.age || '' %>" class="w-full px-4 py-2 rounded-lg input-field text-slate-100" placeholder="Votre âge">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Sexe</label>
+                                <select name="gender" class="w-full px-4 py-2 rounded-lg input-field text-slate-100">
+                                    <option value="">Sélectionnez</option>
+                                    <option value="homme" <%= user.profile.gender === 'homme' ? 'selected' : '' %>>Homme</option>
+                                    <option value="femme" <%= user.profile.gender === 'femme' ? 'selected' : '' %>>Femme</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Morphométrie -->
+                    <div>
+                        <h3 class="text-lg font-bold text-cyan-400 mb-4">Analyse Personnelle</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Poids (kg)</label>
+                                <input type="number" step="0.1" name="weight" value="<%= user.profile.weight || '' %>" class="w-full px-4 py-2 rounded-lg input-field text-slate-100" placeholder="Ex: 75.5">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Taille (cm)</label>
+                                <input type="number" name="height" value="<%= user.profile.height || '' %>" class="w-full px-4 py-2 rounded-lg input-field text-slate-100" placeholder="Ex: 180">
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-300 mb-2">IMC</p>
+                                <div id="imc-display" class="w-full px-4 py-2 rounded-lg bg-slate-800/30 border border-slate-700/50 text-slate-400 flex items-center">
+                                    <%= user.profile.weight && user.profile.height ? (user.profile.weight / ((user.profile.height/100) * (user.profile.height/100))).toFixed(1) : '-' %> kg/m²
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Fitness -->
+                    <div>
+                        <h3 class="text-lg font-bold text-cyan-400 mb-4">🏋️ Fitness</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Niveau</label>
+                                <select name="level" class="w-full px-4 py-2 rounded-lg input-field text-slate-100">
+                                    <option value="debutant" <%= user.profile.level === 'debutant' ? 'selected' : '' %>>Débutant 🌱</option>
+                                    <option value="intermediaire" <%= user.profile.level === 'intermediaire' ? 'selected' : '' %>>Intermédiaire ⚡</option>
+                                    <option value="avance" <%= user.profile.level === 'avance' ? 'selected' : '' %>>Athlète 🏆</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Objectif</label>
+                                <select name="goal" class="w-full px-4 py-2 rounded-lg input-field text-slate-100">
+                                    <option value="remise_en_forme" <%= user.profile.goal === 'remise_en_forme' ? 'selected' : '' %>>✨ Remise en forme</option>
+                                    <option value="prise_de_masse" <%= user.profile.goal === 'prise_de_masse' ? 'selected' : '' %>>💪 Prise de masse</option>
+                                    <option value="perte_de_poids" <%= user.profile.goal === 'perte_de_poids' ? 'selected' : '' %>>🔥 Perte de poids</option>
+                                    <option value="force" <%= user.profile.goal === 'force' ? 'selected' : '' %>>🏋️ Force</option>
+                                    <option value="endurance" <%= user.profile.goal === 'endurance' ? 'selected' : '' %>>🏃 Endurance</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Séances par semaine</label>
+                                <input type="number" min="1" max="7" name="sessionsPerWeek" value="<%= user.profile.sessionsPerWeek || 3 %>" class="w-full px-4 py-2 rounded-lg input-field text-slate-100" placeholder="3">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">Blessures / Limitations</label>
+                                <input type="text" name="injuries" value="<%= user.profile.injuries || '' %>" class="w-full px-4 py-2 rounded-lg input-field text-slate-100" placeholder="Ex: Genou faible">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Boutons -->
+                    <div class="flex gap-4 pt-6 border-t border-slate-700/30">
+                        <button type="submit" class="flex-1 px-6 py-3 btn-primary rounded-lg font-bold text-white flex items-center justify-center gap-2 transition">
+                            Enregistrer les modifications
+                        </button>
+                        <a href="/" class="px-6 py-3 btn-secondary rounded-lg font-bold text-slate-300 flex items-center justify-center gap-2 transition">
+                            ← Retour
+                        </a>
+                    </div>
+                </form>
+
+                <!-- Message de succès -->
+                <% if (message) { %>
+                    <div class="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg">
+                        ✅ <%= message %>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Calcul IMC en temps réel
+        const weightInput = document.querySelector('input[name="weight"]');
+        const heightInput = document.querySelector('input[name="height"]');
+        const imcDisplay = document.getElementById('imc-display');
+
+        function updateIMC() {
+            const weight = parseFloat(weightInput.value);
+            const height = parseFloat(heightInput.value);
+            if (weight && height) {
+                const imc = (weight / ((height / 100) * (height / 100))).toFixed(1);
+                imcDisplay.textContent = imc + ' kg/m²';
+            } else {
+                imcDisplay.textContent = '- kg/m²';
+            }
+        }
+
+        weightInput.addEventListener('input', updateIMC);
+        heightInput.addEventListener('input', updateIMC);
+
+        // Quick Weight Update
+        async function updateQuickWeight() {
+            const weight = document.getElementById('quickWeight').value;
+            if (!weight || weight <= 0) {
+                alert('Veuillez entrer un poids valide');
+                return;
+            }
+
+            try {
+                const res = await fetch('/profile/weight', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ weight: parseFloat(weight) })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    // Afficher message de succès
+                    showNotification('✅ Poids mis à jour avec succès', 'success');
+                    // Recharger la page après 1.5s
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('❌ Erreur lors de la mise à jour', 'error');
+                }
+            } catch (err) {
+                console.error('Erreur:', err);
+                showNotification('❌ Erreur de connexion', 'error');
+            }
+        }
+
+        // Notification system
+        function showNotification(msg, type) {
+            const div = document.createElement('div');
+            div.className = type === 'success' 
+                ? 'fixed top-4 left-4 right-4 md:left-auto md:right-4 p-4 bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 rounded-lg z-50 fade-in-up'
+                : 'fixed top-4 left-4 right-4 md:left-auto md:right-4 p-4 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg z-50 fade-in-up';
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('quickWeight').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') updateQuickWeight();
+        });
+
+        // Weight Chart
+        let weightChart = null;
+        const weightHistory = <%- JSON.stringify(user.weightHistory || []) %>;
+
+        function initWeightChart() {
+            if (weightHistory.length === 0) {
+                document.getElementById('weightChart').parentElement.innerHTML = 
+                    '<div class="flex items-center justify-center h-64 text-slate-500"><p>Pas encore de données. Commencez à enregistrer votre poids !</p></div>';
+                return;
+            }
+
+            // Limiter aux 30 derniers jours
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const filteredHistory = weightHistory.filter(h => new Date(h.date) >= thirtyDaysAgo);
+            
+            if (filteredHistory.length === 0) {
+                document.getElementById('weightChart').parentElement.innerHTML = 
+                    '<div class="flex items-center justify-center h-64 text-slate-500"><p>Pas de données dans les 30 derniers jours</p></div>';
+                return;
+            }
+
+            // Trier par date
+            filteredHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const labels = filteredHistory.map(h => {
+                const d = new Date(h.date);
+                return d.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
+            });
+
+            const data = filteredHistory.map(h => h.weight);
+            const minWeight = Math.min(...data);
+            const maxWeight = Math.max(...data);
+
+            // Update KPIs
+            document.getElementById('weightMin').textContent = minWeight.toFixed(1) + ' kg';
+            document.getElementById('weightMax').textContent = maxWeight.toFixed(1) + ' kg';
+
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            weightChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Poids (kg)',
+                        data: data,
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#a855f7',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#cbd5e1', font: { size: 12 } }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.95)',
+                            borderColor: 'rgba(168, 85, 247, 0.5)',
+                            borderWidth: 1,
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#94a3b8',
+                            padding: 10,
+                            callbacks: {
+                                label: (ctx) => ' ' + ctx.raw.toFixed(1) + ' kg'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(71,85,105,0.1)' },
+                            ticks: { color: '#64748b', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(71,85,105,0.1)' },
+                            ticks: { color: '#64748b', font: { size: 11 } },
+                            beginAtZero: false,
+                            suggestedMin: minWeight - 2,
+                            suggestedMax: maxWeight + 2
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize chart on page load
+        window.addEventListener('load', initWeightChart);
+    </script>
+</body>
+</html>

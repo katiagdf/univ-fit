@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<!-- Page d'authentification pour Univ-FIT : connexion et inscription -->
+<html lang="fr">
+<head>
+    <!-- Métadonnées et titre de la page -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Univ-FIT | Rejoindre l'équipe</title>
+    <!-- Styles externes : Tailwind CSS et polices Google -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Styles personnalisés pour l'interface -->
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .mono { font-family: 'Space Mono', monospace; }
+
+        /* Grille animée en fond */
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Animations */
+        .fade-slide { animation: fadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(30px); }
+        @keyframes fadeSlide { to { opacity: 1; transform: translateY(0); } }
+
+        .step-panel { display: none; animation: stepIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .step-panel.active { display: block; }
+        @keyframes stepIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* Inputs custom */
+        .field {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.6);
+            color: #e2e8f0;
+            transition: all 0.2s;
+        }
+        .field:focus {
+            outline: none;
+            border-color: rgba(6, 182, 212, 0.6);
+            background: rgba(30, 41, 59, 0.9);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1), 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+        .field::placeholder { color: rgba(100, 116, 139, 0.8); }
+
+        /* Goal cards */
+        .goal-card input[type="radio"] { display: none; }
+        .goal-card label {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 16px 12px; border-radius: 12px; cursor: pointer; text-align: center;
+            background: rgba(30, 41, 59, 0.6); border: 1.5px solid rgba(71, 85, 105, 0.4);
+            transition: all 0.2s; gap: 8px; min-height: 100px;
+        }
+        .goal-card input:checked + label {
+            border-color: rgba(6, 182, 212, 0.7);
+            background: rgba(6, 182, 212, 0.1);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+        }
+        .goal-card label:hover { border-color: rgba(6, 182, 212, 0.4); }
+
+        /* Level selector */
+        .level-card input[type="radio"] { display: none; }
+        .level-card label {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 16px; border-radius: 10px; cursor: pointer;
+            background: rgba(30, 41, 59, 0.6); border: 1.5px solid rgba(71, 85, 105, 0.4);
+            transition: all 0.2s;
+        }
+        .level-card input:checked + label {
+            border-color: rgba(6, 182, 212, 0.7);
+            background: rgba(6, 182, 212, 0.08);
+        }
+
+        /* Progress steps */
+        .step-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(71, 85, 105, 0.5); transition: all 0.3s;
+        }
+        .step-dot.active { background: #06b6d4; box-shadow: 0 0 10px rgba(6, 182, 212, 0.6); width: 24px; border-radius: 4px; }
+        .step-dot.done { background: #22c55e; }
+
+        /* Tab toggle */
+        .tab-btn { transition: all 0.3s; }
+        .tab-btn.active { background: linear-gradient(135deg, #06b6d4, #3b82f6); color: white; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.3); border-radius: 4px; }
+
+        /* Glow orbs */
+        .orb-cyan { background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%); }
+        .orb-blue { background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%); }
+        .orb-red { background: radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%); }
+
+        /* Select custom */
+        select.field { cursor: pointer; }
+        select.field option { background: #1e293b; color: #e2e8f0; }
+
+        /* Logo animations */
+        .logo-glow {
+            animation: logoPulse 3s ease-in-out infinite, logoFloat 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.4)) drop-shadow(0 0 30px rgba(59, 130, 246, 0.2));
+            transition: all 0.3s ease;
+        }
+        .logo-glow:hover {
+            animation: logoPulse 2s ease-in-out infinite, logoFloat 1.5s ease-in-out infinite, logoScale 0.3s ease-out forwards;
+            filter: drop-shadow(0 0 25px rgba(6, 182, 212, 0.7)) drop-shadow(0 0 50px rgba(59, 130, 246, 0.5));
+        }
+        @keyframes logoPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.9; } }
+        @keyframes logoFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+        @keyframes logoScale { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+    </style>
+</head>
+<!-- Corps de la page avec fond animé et éléments décoratifs -->
+<body class="bg-[#070d1a] text-slate-200 min-h-screen flex flex-col items-center justify-center relative grid-bg">
+
+    <!-- Orbes décoratives pour l'effet visuel -->
+    <div class="orb-cyan absolute top-[-15%] left-[-10%] w-[50%] h-[50%] pointer-events-none"></div>
+    <div class="orb-blue absolute bottom-[-15%] right-[-10%] w-[45%] h-[45%] pointer-events-none"></div>
+    <div class="orb-red absolute top-[40%] right-[20%] w-[25%] h-[25%] pointer-events-none"></div>
+
+    <!-- Logo de l'application -->
+    <div class="flex items-center justify-center fade-slide mb-8 z-10">
+        <img src="/images/logo66.png" alt="Logo UNIV-FIT" class="logo-glow cursor-pointer h-24 md:h-32 object-contain">
+    </div>
+
+    <!-- Conteneur principal du formulaire -->
+    <div class="glass rounded-3xl w-full max-w-md mx-4 shadow-[0_25px_80px_rgba(0,0,0,0.5)] fade-slide overflow-hidden" style="animation-delay:0.1s">
+        
+        <!-- Onglets pour basculer entre connexion et inscription -->
+        <div class="flex p-2 gap-2 bg-slate-900/50 border-b border-slate-700/40">
+            <button id="tabLogin" onclick="switchTab('login')" class="tab-btn active flex-1 py-3 rounded-xl text-sm font-bold text-center">
+                Connexion
+            </button>
+            <button id="tabRegister" onclick="switchTab('register')" class="tab-btn flex-1 py-3 rounded-xl text-sm font-bold text-center text-slate-400">
+                Inscription
+            </button>
+        </div>
+
+        <!-- Affichage des erreurs si présentes -->
+        <% if (error) { %>
+        <div class="mx-5 mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
+            <span class="text-lg">⚠️</span>
+            <%= error %>
+        </div>
+        <% } %>
+
+        <!-- Formulaire de connexion -->
+        <div id="formLogin" class="p-6">
+            <h2 class="text-xl font-bold mb-1">Content de te revoir 💪</h2>
+            <p class="text-slate-400 text-sm mb-6">Reprends là où tu t'es arrêté.</p>
+
+            <form method="POST" action="/auth/login" class="flex flex-col gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Email</label>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">✉️</span>
+                        <input type="email" name="email" required placeholder="ton@email.com" class="field w-full pl-10 pr-4 py-3 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Mot de passe</label>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">🔒</span>
+                        <input type="password" name="password" required placeholder="••••••••" class="field w-full pl-10 pr-4 py-3 rounded-xl text-sm">
+                    </div>
+                </div>
+                <button type="submit" class="w-full mt-2 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-bold text-white transition-all shadow-[0_0_25px_rgba(6,182,212,0.3)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] text-sm tracking-wide">
+                    SE CONNECTER
+                </button>
+            </form>
+
+            <p class="text-center text-slate-500 text-xs mt-5">
+                Pas encore de compte ? <button onclick="switchTab('register')" class="text-cyan-400 hover:text-cyan-300 font-bold">👤 Créer un compte</button>
+            </p>
+        </div>
+
+        <!-- Formulaire d'inscription avec étapes -->
+        <div id="formRegister" class="hidden">
+            <!-- Indicateurs de progression des étapes -->
+            <div class="flex items-center justify-center gap-2 pt-5 pb-3" id="stepDots">
+                <div class="step-dot active" id="dot-1"></div>
+                <div class="step-dot" id="dot-2"></div>
+                <div class="step-dot" id="dot-3"></div>
+            </div>
+
+            <p class="text-center text-xs text-slate-500 mb-2 mono" id="stepLabel">ÉTAPE 1 / 3 — COMPTE</p>
+
+            <!-- Formulaire d'inscription avec étapes multiples -->
+            <form method="POST" action="/auth/register" id="registerForm" class="px-6 pb-6 overflow-y-auto" style="max-height: 68vh;">
+                <!-- Étape 1 : Informations de compte -->
+                <div class="step-panel active" id="step1">
+                    <h2 class="text-lg font-bold mb-1 mt-2">Crée ton compte</h2>
+                    <p class="text-slate-400 text-xs mb-5">Les bases pour commencer ton aventure.</p>
+                    
+                    <div class="flex flex-col gap-3.5">
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">👤</span>
+                            <input type="text" name="username" id="r_username" required placeholder="Pseudo (ex: Sawab)" class="field w-full pl-10 pr-4 py-3 rounded-xl text-sm">
+                        </div>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">✉️</span>
+                            <input type="email" name="email" id="r_email" required placeholder="Email" class="field w-full pl-10 pr-4 py-3 rounded-xl text-sm">
+                        </div>
+                        <div class="relative">
+                            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">🔒</span>
+                            <input type="password" name="password" id="r_password" required minlength="6" placeholder="Mot de passe (6 car. min)" class="field w-full pl-10 pr-4 py-3 rounded-xl text-sm">
+                        </div>
+                    </div>
+                    <button type="button" onclick="nextStep(2)" class="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-white transition-all text-sm">
+                        Suivant ➔
+                    </button>
+                </div>
+
+                <!-- Étape 2 : Profil physique -->
+                <div class="step-panel" id="step2">
+                    <h2 class="text-lg font-bold mb-1 mt-2">Ton profil physique</h2>
+                    <p class="text-slate-400 text-xs mb-4">Pour calculer tes recommandations personnalisées.</p>
+
+                    <div class="flex flex-col gap-3">
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Âge</label>
+                                <input type="number" name="age" min="15" max="80" placeholder="25" class="field w-full px-3 py-2.5 rounded-xl text-sm text-center">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Poids (kg)</label>
+                                <input type="number" name="weight" min="30" max="250" placeholder="75" class="field w-full px-3 py-2.5 rounded-xl text-sm text-center">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Taille (cm)</label>
+                                <input type="number" name="height" min="100" max="230" placeholder="175" class="field w-full px-3 py-2.5 rounded-xl text-sm text-center">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Genre</label>
+                            <select name="gender" class="field w-full px-4 py-2.5 rounded-xl text-sm">
+                                <option value="homme">Homme</option>
+                                <option value="femme">Femme</option>
+                                <option value="autre">Autre / Ne pas préciser</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Séances par semaine</label>
+                            <select name="sessionsPerWeek" class="field w-full px-4 py-2.5 rounded-xl text-sm">
+                                <option value="1">1 séance / semaine</option>
+                                <option value="2">2 séances / semaine</option>
+                                <option value="3" selected>3 séances / semaine</option>
+                                <option value="4">4 séances / semaine</option>
+                                <option value="5">5 séances / semaine</option>
+                                <option value="6">6+ séances / semaine</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-5">
+                        <button type="button" onclick="prevStep(1)" class="flex-none px-5 py-3 rounded-xl bg-slate-700/50 text-slate-300 font-bold text-sm hover:bg-slate-700 transition-colors">
+                            ⬅️
+                        </button>
+                        <button type="button" onclick="nextStep(3)" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold text-white transition-all text-sm">
+                            Suivant ➔
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Étape 3 : Objectifs et niveau -->
+                <div class="step-panel" id="step3">
+                    <h2 class="text-lg font-bold mb-1 mt-2">Tes objectifs 🎯</h2>
+                    <p class="text-slate-400 text-xs mb-4">On adaptera ton dashboard à ce que tu vises.</p>
+
+                    <div class="mb-4">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Niveau actuel</label>
+                        <div class="flex flex-col gap-2">
+                            <div class="level-card">
+                                <input type="radio" name="level" id="lv1" value="debutant" checked>
+                                <label for="lv1">
+                                    <span class="text-lg">🌱</span>
+                                    <div><span class="font-bold text-sm">Débutant</span><span class="block text-[11px] text-slate-400">Moins de 1 an de pratique</span></div>
+                                </label>
+                            </div>
+                            <div class="level-card">
+                                <input type="radio" name="level" id="lv2" value="intermediaire">
+                                <label for="lv2">
+                                    <span class="text-lg">⚡</span>
+                                    <div><span class="font-bold text-sm">Intermédiaire</span><span class="block text-[11px] text-slate-400">1 à 3 ans de pratique</span></div>
+                                </label>
+                            </div>
+                            <div class="level-card">
+                                <input type="radio" name="level" id="lv3" value="avance">
+                                <label for="lv3">
+                                    <span class="text-lg">🏆</span>
+                                    <div><span class="font-bold text-sm">Avancé</span><span class="block text-[11px] text-slate-400">3+ ans de pratique régulière</span></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Objectif principal</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g1" value="prise_de_masse" checked>
+                                <label for="g1">
+                                    <span class="text-2xl">💪</span>
+                                    <span class="text-[11px] font-bold leading-tight">Prise de masse</span>
+                                </label>
+                            </div>
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g2" value="perte_de_poids">
+                                <label for="g2">
+                                    <span class="text-2xl">🔥</span>
+                                    <span class="text-[11px] font-bold leading-tight">Perte de poids</span>
+                                </label>
+                            </div>
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g3" value="force">
+                                <label for="g3">
+                                    <span class="text-2xl">🏋️</span>
+                                    <span class="text-[11px] font-bold leading-tight">Force</span>
+                                </label>
+                            </div>
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g4" value="endurance">
+                                <label for="g4">
+                                    <span class="text-2xl">🏃</span>
+                                    <span class="text-[11px] font-bold leading-tight">Endurance</span>
+                                </label>
+                            </div>
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g5" value="remise_en_forme">
+                                <label for="g5">
+                                    <span class="text-2xl">✨</span>
+                                    <span class="text-[11px] font-bold leading-tight">Remise en forme</span>
+                                </label>
+                            </div>
+                            <div class="goal-card">
+                                <input type="radio" name="goal" id="g6" value="endurance">
+                                <label for="g6">
+                                    <span class="text-2xl">🧘</span>
+                                    <span class="text-[11px] font-bold leading-tight">Bien-être</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Blessures / Contraintes (optionnel)</label>
+                        <input type="text" name="injuries" placeholder="ex: douleur genoux, épaule fragile..." class="field w-full px-4 py-2.5 rounded-xl text-sm">
+                    </div>
+
+                    <div class="flex gap-2 mt-5">
+                        <button type="button" onclick="prevStep(2)" class="flex-none px-5 py-3 rounded-xl bg-slate-700/50 text-slate-300 font-bold text-sm hover:bg-slate-700 transition-colors">
+                            ⬅️
+                        </button>
+                        <button type="submit" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-bold text-white transition-all shadow-[0_0_25px_rgba(6,182,212,0.3)] text-sm">
+                            🚀 Lancer mon programme
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pied de page avec slogan -->
+    <p class="absolute bottom-5 left-1/2 -translate-x-1/2 text-slate-600 text-xs mono tracking-widest">
+        UNIV-FIT • TRACK. PUSH. GROW.
+    </p>
+
+    <!-- Scripts JavaScript pour la navigation -->
+    <script>
+        // Variables globales pour la gestion des étapes
+        let currentStep = 1;
+        const labels = { 1: 'ÉTAPE 1 / 3 — COMPTE', 2: 'ÉTAPE 2 / 3 — PROFIL', 3: 'ÉTAPE 3 / 3 — OBJECTIFS' };
+
+        // Fonction pour basculer entre les onglets connexion/inscription
+        function switchTab(tab) {
+            const login = document.getElementById('formLogin');
+            const register = document.getElementById('formRegister');
+            const tabL = document.getElementById('tabLogin');
+            const tabR = document.getElementById('tabRegister');
+
+            if (tab === 'login') {
+                login.classList.remove('hidden');
+                register.classList.add('hidden');
+                tabL.classList.add('active');
+                tabL.classList.remove('text-slate-400');
+                tabR.classList.remove('active');
+                tabR.classList.add('text-slate-400');
+            } else {
+                login.classList.add('hidden');
+                register.classList.remove('hidden');
+                tabR.classList.add('active');
+                tabR.classList.remove('text-slate-400');
+                tabL.classList.remove('active');
+                tabL.classList.add('text-slate-400');
+                // Réinitialiser le scroll du formulaire d'inscription
+                document.getElementById('registerForm').scrollTop = 0;
+            }
+        }
+
+        // Fonction pour passer à l'étape suivante avec validation
+        function nextStep(step) {
+            if (step === 2) {
+                const u = document.getElementById('r_username').value;
+                const e = document.getElementById('r_email').value;
+                const p = document.getElementById('r_password').value;
+                if (!u || !e || !p || p.length < 6) {
+                    alert('Remplis tous les champs (mot de passe : 6 caractères minimum)');
+                    return;
+                }
+            }
+            goToStep(step);
+        }
+
+        // Fonction pour revenir à l'étape précédente
+        function prevStep(step) { goToStep(step); }
+
+        // Fonction principale pour changer d'étape
+        function goToStep(targetStep) {
+            // Cacher l'étape actuelle
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+
+            // Mettre à jour les dots
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`dot-${i}`);
+                dot.classList.remove('active', 'done');
+                if (i < targetStep) dot.classList.add('done');
+                else if (i === targetStep) dot.classList.add('active');
+            }
+
+            // Afficher la nouvelle étape
+            currentStep = targetStep;
+            document.getElementById(`step${currentStep}`).classList.add('active');
+            document.getElementById('stepLabel').textContent = labels[currentStep];
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Univ-FIT | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .mono { font-family: 'Space Mono', monospace; }
+        .glass { background:rgba(15,23,42,0.7); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.07); }
+        .glass-dark { background:rgba(7,13,26,0.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.05); }
+
+        .fade-in { animation:fadeIn 0.35s ease forwards; opacity:0; }
+        @keyframes fadeIn { to { opacity:1; } }
+
+        /* Carte exercice */
+        .exo-card { background:rgba(17,25,45,0.8); border:1px solid rgba(71,85,105,0.3); transition:border-color 0.2s; }
+        .exo-card:has(.set-row.done-all) { border-color:rgba(6,182,212,0.3); }
+
+        /* Ligne de set */
+        .set-row { background:rgba(30,41,59,0.5); border:1px solid rgba(71,85,105,0.2); transition:all 0.2s; }
+        .set-row.set-done { background:rgba(6,182,212,0.08); border-color:rgba(6,182,212,0.25); }
+
+        /* Input tableau */
+        .set-input { background:rgba(15,23,42,0.6); border:1px solid rgba(71,85,105,0.3); color:#e2e8f0;
+            text-align:center; border-radius:8px; transition:all 0.2s; font-family:'Space Mono',monospace; }
+        .set-input:focus { outline:none; border-color:rgba(6,182,212,0.6); background:rgba(15,23,42,0.9); }
+        .set-input::-webkit-inner-spin-button { -webkit-appearance:none; }
+
+        /* Select exercice */
+        .exo-select { background:rgba(15,23,42,0.8); border:1px solid rgba(71,85,105,0.4);
+            color:#e2e8f0; border-radius:10px; outline:none; cursor:pointer; }
+        .exo-select:focus { border-color:rgba(6,182,212,0.6); }
+        .exo-select option, .exo-select optgroup { background:#0f172a; color:#e2e8f0; }
+
+        /* Graphique onglets */
+        .chart-tab { transition:all 0.2s; border-radius:6px; }
+        .chart-tab.active { background:rgba(6,182,212,1); color:#0f172a; font-weight:800; }
+        .chart-tab:not(.active) { color:#64748b; }
+        .chart-tab:not(.active):hover { color:#94a3b8; }
+
+        .main-grid { display:grid; grid-template-columns:1fr 370px; gap:20px; height:100%; }
+        @media(max-width:1024px){ .main-grid { grid-template-columns:1fr; } }
+
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-thumb { background:rgba(6,182,212,0.2); border-radius:4px; }
+
+        /* Badge catégorie */
+        .cat-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:5px;
+            border:1px solid; text-transform:uppercase; letter-spacing:0.05em; }
+    </style>
+</head>
+<body class="bg-[#070d1a] text-slate-200 min-h-screen">
+    <div class="fixed top-[-20%] left-[-10%] w-[40%] h-[50%] bg-blue-600/10 rounded-full blur-[130px] pointer-events-none"></div>
+    <div class="fixed bottom-[-10%] right-[-5%] w-[30%] h-[40%] bg-red-600/8 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <header class="flex justify-between items-center px-6 py-4 z-10 border-b border-slate-700/30 glass-dark sticky top-0">
+        <div class="flex items-center gap-3">
+            <img src="/images/logo66.png" alt="Logo UNIV-FIT" class="logo-glow cursor-pointer" style="height:50px;">
+        </div>
+
+        <div class="hidden md:flex items-center gap-5">
+            <div class="text-center"><p class="text-[10px] text-slate-500 mono">STREAK</p><p class="text-lg font-black text-cyan-400"><%= user.stats.streak %> 🔥</p></div>
+            <div class="w-px h-7 bg-slate-700/50"></div>
+            <div class="text-center"><p class="text-[10px] text-slate-500 mono">SÉANCES</p><p class="text-lg font-black text-blue-400"><%= user.stats.totalSessions %></p></div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <%
+            const levelLabels = { debutant:'Débutant 🌱', intermediaire:'Inter. ⚡', avance:'Athlète 🏆' };
+            const goalLabels  = { prise_de_masse:'💪 Masse', perte_de_poids:'🔥 Poids', force:'🏋️ Force', endurance:'🏃 Endurance', remise_en_forme:'✨ Forme' };
+            %>
+            <div class="hidden md:block text-right">
+                <p class="text-sm font-bold"><%= user.username %></p>
+                <p class="text-xs text-cyan-400 mono"><%= levelLabels[user.profile.level] %></p>
+            </div>
+            <a href="/profile" class="relative group">
+                <img src="<%= user.avatar || 'https://api.dicebear.com/7.x/shapes/svg?seed=' + user.username %>"
+                    class="w-9 h-9 rounded-full border-2 border-cyan-500/40 bg-slate-800 object-cover group-hover:border-cyan-400 transition-all">
+                <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#070d1a]"></div>
+            </a>
+            <a href="/auth/logout" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800/50 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                <i class="ph ph-sign-out"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="p-5 z-10">
+        <div class="main-grid max-w-7xl mx-auto">
+
+            <div class="flex flex-col gap-4">
+
+                <%
+                const goalConfig = {
+                    prise_de_masse:  { emoji:'💪', col:'border-l-cyan-500',    title:'Prise de Masse',   text:'Mouvements composés lourds, 6–12 reps, surplus calorique +300 kcal.', tips:[{l:'6–12 reps',c:'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'},{l:'90s repos',c:'text-blue-400 bg-blue-400/10 border-blue-400/20'},{l:'Surcharge progressive',c:'text-purple-400 bg-purple-400/10 border-purple-400/20'}] },
+                    perte_de_poids:  { emoji:'🔥', col:'border-l-orange-500',  title:'Perte de Poids',   text:'Circuit training, 15–20 reps, cardio HIIT post-séance, déficit -400 kcal.', tips:[{l:'15–20 reps',c:'text-orange-400 bg-orange-400/10 border-orange-400/20'},{l:'30s repos',c:'text-red-400 bg-red-400/10 border-red-400/20'},{l:'HIIT cardio',c:'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'}] },
+                    force:           { emoji:'🏋️', col:'border-l-purple-500',  title:'Force',            text:'Squat / Bench / Deadlift à 80–90% du 1RM, 1–5 reps, 3–5 min repos.', tips:[{l:'1–5 reps',c:'text-purple-400 bg-purple-400/10 border-purple-400/20'},{l:'3–5 min repos',c:'text-blue-400 bg-blue-400/10 border-blue-400/20'},{l:'80–90% 1RM',c:'text-pink-400 bg-pink-400/10 border-pink-400/20'}] },
+                    endurance:       { emoji:'🏃', col:'border-l-green-500',   title:'Endurance',        text:'Circuit training, 20+ reps légers, alternance muscu/cardio continu.', tips:[{l:'20+ reps',c:'text-green-400 bg-green-400/10 border-green-400/20'},{l:'Circuit',c:'text-teal-400 bg-teal-400/10 border-teal-400/20'},{l:'Cardio intensif',c:'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'}] },
+                    remise_en_forme: { emoji:'✨', col:'border-l-emerald-500', title:'Remise en Forme',  text:'3 séances/sem, technique avant la charge, régularité sur 3 mois.', tips:[{l:'10–15 reps',c:'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'},{l:'Technique',c:'text-blue-400 bg-blue-400/10 border-blue-400/20'},{l:'Régularité',c:'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'}] }
+                };
+                const levelPfx = { debutant:'En tant que débutant, ', intermediaire:'', avance:'À ton niveau avancé, ' };
+                const cfg = goalConfig[user.profile.goal] || goalConfig.remise_en_forme;
+                %>
+                <div class="glass rounded-2xl p-4 border-l-4 <%= cfg.col %> flex-shrink-0">
+                    <div class="flex justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[10px] mono uppercase tracking-widest text-slate-500 mb-0.5">Analyse · <%= user.username %></p>
+                            <p class="font-bold text-sm text-slate-100"><%= cfg.emoji %> Programme <%= cfg.title %></p>
+                            <p class="text-xs text-slate-400 mt-1 leading-relaxed"><%= levelPfx[user.profile.level] %><%= cfg.text %></p>
+                            <% if(user.profile.injuries){ %><p class="text-xs text-amber-400 mt-1">⚠️ <%= user.profile.injuries %></p><% } %>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-700/40">
+                        <% cfg.tips.forEach(t=>{ %><span class="cat-badge <%= t.c %>"><%= t.l %></span><% }) %>
+                        <span class="cat-badge text-slate-400 bg-slate-700/40 border-slate-600/30"><%= user.profile.sessionsPerWeek %>× / sem</span>
+                    </div>
+                </div>
+
+                <div class="glass rounded-xl px-4 py-3 flex items-center gap-3 flex-shrink-0">
+                    <i class="ph ph-magnifying-glass text-slate-500 flex-shrink-0"></i>
+                    <select id="exoSelect" class="exo-select flex-1 py-2 px-3 text-sm">
+                        <option value="">— Choisir un exercice —</option>
+                        
+                        <optgroup label="Poitrine">
+                            <option value="Développé couché|poitrine">Développé couché</option>
+                            <option value="Développé incliné|poitrine">Développé incliné</option>
+                            <option value="Développé décliné|poitrine">Développé décliné</option>
+                            <option value="Écarté poulie|poitrine">Écarté poulie</option>
+                            <option value="Écarté haltères|poitrine">Écarté haltères</option>
+                            <option value="Dips|poitrine">Dips</option>
+                            <option value="Pompes|poitrine">Pompes</option>
+                        </optgroup>
+                        <optgroup label="Dos">
+                            <option value="Tractions|dos">Tractions</option>
+                            <option value="Rowing barre|dos">Rowing barre</option>
+                            <option value="Rowing haltère|dos">Rowing haltère</option>
+                            <option value="Tirage poitrine|dos">Tirage poitrine</option>
+                            <option value="Tirage nuque|dos">Tirage nuque</option>
+                            <option value="Soulevé de terre|dos">Soulevé de terre</option>
+                            <option value="Pull-over|dos">Pull-over</option>
+                        </optgroup>
+                        <optgroup label="Jambes">
+                            <option value="Squat barre|jambes">Squat barre</option>
+                            <option value="Presse à cuisses|jambes">Presse à cuisses</option>
+                            <option value="Fentes|jambes">Fentes</option>
+                            <option value="Leg extension|jambes">Leg extension</option>
+                            <option value="Leg curl|jambes">Leg curl</option>
+                            <option value="Mollets debout|jambes">Mollets debout</option>
+                            <option value="Hip thrust|jambes">Hip thrust</option>
+                        </optgroup>
+                        <optgroup label="Épaules">
+                            <option value="Développé militaire|epaules">Développé militaire</option>
+                            <option value="Élévations latérales|epaules">Élévations latérales</option>
+                            <option value="Élévations frontales|epaules">Élévations frontales</option>
+                            <option value="Oiseau|epaules">Oiseau (arrière)</option>
+                            <option value="Arnold press|epaules">Arnold press</option>
+                        </optgroup>
+                        <optgroup label="Bras">
+                            <option value="Curl barre|bras">Curl barre</option>
+                            <option value="Curl haltères|bras">Curl haltères</option>
+                            <option value="Curl marteau|bras">Curl marteau</option>
+                            <option value="Extensions triceps poulie|bras">Extensions triceps poulie</option>
+                            <option value="Barre au front|bras">Barre au front</option>
+                            <option value="Kickback triceps|bras">Kickback triceps</option>
+                            <option value="Dips triceps|bras">Dips triceps</option>
+                        </optgroup>
+                        <optgroup label="Abdos">
+                            <option value="Crunch|abdos">Crunch</option>
+                            <option value="Planche|abdos">Planche</option>
+                            <option value="Relevé de jambes|abdos">Relevé de jambes</option>
+                            <option value="Ab wheel|abdos">Ab wheel</option>
+                            <option value="Russian twist|abdos">Russian twist</option>
+                        </optgroup>
+                        <optgroup label="Cardio">
+                            <option value="Tapis de course|cardio">Tapis de course</option>
+                            <option value="Vélo elliptique|cardio">Vélo elliptique</option>
+                            <option value="Rameur|cardio">Rameur</option>
+                            <option value="Burpees|cardio">Burpees</option>
+                            <option value="Corde à sauter|cardio">Corde à sauter</option>
+                        </optgroup>
+                    </select>
+
+                    <button onclick="addExercise()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:brightness-110 text-white font-bold px-5 py-2 rounded-lg text-sm flex-shrink-0 flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                        <i class="ph ph-plus-bold"></i> Ajouter
+                    </button>
+                    <button onclick="loadRecommendedSession()" title="Charger ma séance recommandée" class="bg-gradient-to-r from-violet-500 to-purple-600 hover:brightness-110 text-white font-bold px-4 py-2 rounded-lg text-sm flex-shrink-0 flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                        Ajouter ma séance recommandée
+                    </button>
+                </div>
+
+                <div class="glass rounded-2xl flex-1 flex flex-col overflow-hidden border-t-[3px] border-t-cyan-500 min-h-0">
+                    <div class="flex justify-between items-center px-5 pt-4 pb-3 flex-shrink-0 border-b border-slate-700/30">
+                        <h2 class="font-bold text-sm flex items-center gap-2">
+                            Séance en cours
+                        </h2>
+                        <div class="flex items-center gap-3">
+                            <span id="progressText" class="text-xs font-bold text-cyan-400 mono">0 série</span>
+                            <div class="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="progressBar" class="bg-gradient-to-r from-cyan-400 to-blue-500 h-full rounded-full transition-all duration-500" style="width:0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="exerciseList" class="px-4 py-3 space-y-3">
+                        <div class="flex items-center justify-center py-12 text-slate-600">
+                            <div class="animate-spin rounded-full h-7 w-7 border-b-2 border-cyan-500"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+
+                <%
+                let imc=null, imcLabel='—', imcColor='text-slate-300';
+                if(user.profile.weight && user.profile.height){
+                    imc = Math.round(user.profile.weight/Math.pow(user.profile.height/100,2)*10)/10;
+                    if(imc<18.5){imcLabel='Sous-poids';imcColor='text-blue-400';}
+                    else if(imc<25){imcLabel='Normal ✓';imcColor='text-green-400';}
+                    else if(imc<30){imcLabel='Surpoids';imcColor='text-yellow-400';}
+                    else{imcLabel='Obésité';imcColor='text-red-400';}
+                }
+                %>
+                <div class="grid grid-cols-3 gap-3 flex-shrink-0">
+                    <div class="glass rounded-xl p-3 text-center"><p class="text-[10px] text-slate-500 mono mb-1">IMC</p><p class="text-xl font-black <%= imcColor %>"><%= imc||'—' %></p><p class="text-[10px] text-slate-500"><%= imcLabel %></p></div>
+                    <div class="glass rounded-xl p-3 text-center"><p class="text-[10px] text-slate-500 mono mb-1">SÉA/SEM</p><p class="text-xl font-black text-green-400"><%= user.profile.sessionsPerWeek %></p><p class="text-[10px] text-slate-500">objectif</p></div>
+                    <div class="glass rounded-xl p-3 text-center"><p class="text-[10px] text-slate-500 mono mb-1">TOTAL</p><p class="text-xl font-black text-orange-400"><%= user.stats.totalExercises %></p><p class="text-[10px] text-slate-500">séries</p></div>
+                </div>
+
+                <div class="glass rounded-2xl p-4 flex-shrink-0">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="ph ph-trend-up text-cyan-400"></i>
+                            <span class="text-xs font-bold text-slate-200 mono uppercase tracking-wider">Progression</span>
+                        </div>
+                        <div class="flex gap-1 bg-slate-800/60 rounded-lg p-1">
+                            <button onclick="switchChart('maxweight')" id="tab-maxweight" class="chart-tab active px-2 py-1 text-[10px] font-bold">Max kg</button>
+                            <button onclick="switchChart('volume')"    id="tab-volume"    class="chart-tab        px-2 py-1 text-[10px]">Vol</button>
+                            <button onclick="switchChart('tonnage')"   id="tab-tonnage"   class="chart-tab        px-2 py-1 text-[10px]">Tonnage</button>
+                        </div>
+                    </div>
+
+                    <select id="chartExoSelect" class="exo-select w-full text-sm py-2 px-3 mb-3 font-bold"
+                        onchange="renderChart(exercises, perfData)">
+                        <option value="">— Choisir un exercice à analyser —</option>
+                    </select>
+
+                    <div class="grid grid-cols-3 gap-2 mb-3" id="chartKpis">
+                        <div class="glass-dark rounded-xl px-2 py-2 text-center">
+                            <p class="text-[9px] text-yellow-400 mono font-bold mb-0.5">🏆 RECORD</p>
+                            <p class="text-sm font-black text-yellow-400" id="kpiPR">—</p>
+                        </div>
+                        <div class="glass-dark rounded-xl px-2 py-2 text-center">
+                            <p class="text-[9px] text-slate-500 mono font-bold mb-0.5">DERNIÈRE</p>
+                            <p class="text-sm font-black text-cyan-400" id="kpiLast">—</p>
+                        </div>
+                        <div class="glass-dark rounded-xl px-2 py-2 text-center">
+                            <p class="text-[9px] text-slate-500 mono font-bold mb-0.5">TENDANCE</p>
+                            <p class="text-sm font-black" id="kpiTrend">—</p>
+                        </div>
+                    </div>
+
+                    <div class="h-28"><canvas id="evolutionChart"></canvas></div>
+                    <p class="text-[10px] text-slate-600 text-center mt-1 mono" id="chartHint">Sélectionne un exercice pour voir sa progression</p>
+                </div>
+
+                <div class="glass rounded-2xl flex flex-col border-t-[3px] border-t-red-500">
+                    <div class="px-4 py-3 border-b border-slate-700/40 flex justify-between items-center flex-shrink-0">
+                        <h3 class="text-xs font-bold flex items-center gap-2"><i class="ph-fill ph-users text-red-500"></i> Zone d'entraide</h3>
+                        <span class="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md mono">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> LIVE
+                        </span>
+                    </div>
+                    
+                    <div id="chatMessages" class="max-h-48 overflow-y-auto p-3 flex flex-col gap-2 text-xs"></div>
+                    
+                    <form id="chatForm" class="p-3 border-t border-slate-700/40 flex-shrink-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-[9px] font-black flex-shrink-0"><%= user.username.charAt(0).toUpperCase() %></div>
+                            <input type="text" id="chatInput" autocomplete="off" placeholder="Motiver l'équipe..."
+                                style="background:rgba(22,33,55,0.8);border:1px solid rgba(71,85,105,0.4);color:#e2e8f0;"
+                                class="flex-1 rounded-lg px-3 py-2 text-xs outline-none">
+                            <button type="submit" class="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center flex-shrink-0">
+                                <i class="ph-fill ph-paper-plane-right text-sm"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+   
+    //  DONNÉES GLOBALES DE L'UTILISATEUR
+   
+    const USERNAME = '<%= user.username %>';
+    let exercises = [];
+    let perfData  = [];
+    let myChart   = null;
+    let currentTab = 'maxweight';
+
+    const catColor = {
+        poitrine:'text-rose-400 bg-rose-400/10 border-rose-400/20',
+        dos:     'text-blue-400 bg-blue-400/10 border-blue-400/20',
+        jambes:  'text-green-400 bg-green-400/10 border-green-400/20',
+        epaules: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+        bras:    'text-orange-400 bg-orange-400/10 border-orange-400/20',
+        abdos:   'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+        cardio:  'text-cyan-400 bg-cyan-400/10 border-cyan-400/20',
+        autre:   'text-slate-400 bg-slate-700/40 border-slate-600/30'
+    };
+
+    // DICTIONNAIRE DE SÉANCES RECOMMANDÉES
+   
+    const USER_GOAL  = '<%= user.profile.goal %>';
+    const USER_LEVEL = '<%= user.profile.level %>';
+
+    // Bibliothèque de séances selon : Objectif -> Niveau -> Liste d'exercices
+    const SEANCES = {
+        prise_de_masse: {
+            debutant: [
+                { name:'Développé couché',      category:'poitrine', sets:[{weight:40,reps:10},{weight:40,reps:10},{weight:40,reps:10}] },
+                { name:'Tirage poitrine',        category:'dos',      sets:[{weight:35,reps:10},{weight:35,reps:10},{weight:35,reps:10}] },
+                { name:'Développé militaire',    category:'epaules',  sets:[{weight:20,reps:10},{weight:20,reps:10},{weight:20,reps:10}] },
+                { name:'Squat barre',            category:'jambes',   sets:[{weight:40,reps:10},{weight:40,reps:10},{weight:40,reps:10}] },
+                { name:'Curl haltères',          category:'bras',     sets:[{weight:12,reps:12},{weight:12,reps:12},{weight:12,reps:12}] },
+            ],
+            intermediaire: [
+                { name:'Développé couché',       category:'poitrine', sets:[{weight:70,reps:8},{weight:75,reps:6},{weight:80,reps:5},{weight:70,reps:8}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:80,reps:6},{weight:90,reps:5},{weight:100,reps:4}] },
+                { name:'Développé militaire',     category:'epaules',  sets:[{weight:40,reps:8},{weight:45,reps:8},{weight:45,reps:6}] },
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:80,reps:8},{weight:85,reps:6},{weight:90,reps:5}] },
+                { name:'Curl barre',              category:'bras',     sets:[{weight:30,reps:10},{weight:32,reps:8},{weight:35,reps:6}] },
+                { name:'Extensions triceps poulie',category:'bras',   sets:[{weight:25,reps:10},{weight:27,reps:10},{weight:30,reps:8}] },
+            ],
+            avance: [
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:100,reps:5},{weight:110,reps:4},{weight:120,reps:3},{weight:100,reps:5}] },
+                { name:'Soulevé de terre',         category:'dos',      sets:[{weight:140,reps:4},{weight:150,reps:3},{weight:160,reps:2}] },
+                { name:'Développé militaire',      category:'epaules',  sets:[{weight:70,reps:5},{weight:75,reps:5},{weight:80,reps:4}] },
+                { name:'Squat barre',              category:'jambes',   sets:[{weight:130,reps:5},{weight:140,reps:4},{weight:150,reps:3}] },
+                { name:'Tractions',                category:'dos',      sets:[{weight:0,reps:10},{weight:0,reps:8},{weight:0,reps:8}] },
+                { name:'Curl barre',               category:'bras',     sets:[{weight:50,reps:8},{weight:55,reps:6},{weight:60,reps:5}] },
+                { name:'Dips',                     category:'poitrine', sets:[{weight:0,reps:12},{weight:0,reps:10},{weight:0,reps:10}] },
+            ],
+        },
+        perte_de_poids: {
+            debutant: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:20,reps:15},{weight:20,reps:15},{weight:20,reps:15}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:25,reps:15},{weight:25,reps:15},{weight:25,reps:15}] },
+                { name:'Tirage poitrine',         category:'dos',      sets:[{weight:25,reps:15},{weight:25,reps:15},{weight:25,reps:15}] },
+                { name:'Fentes',                  category:'jambes',   sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:15}] },
+                { name:'Crunch',                  category:'abdos',    sets:[{weight:0,reps:20},{weight:0,reps:20},{weight:0,reps:20}] },
+                { name:'Burpees',                 category:'cardio',   sets:[{weight:0,reps:15},{weight:0,reps:15}] },
+            ],
+            intermediaire: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:40,reps:15},{weight:45,reps:15},{weight:45,reps:12}] },
+                { name:'Hip thrust',              category:'jambes',   sets:[{weight:50,reps:15},{weight:55,reps:15},{weight:60,reps:12}] },
+                { name:'Rowing barre',            category:'dos',      sets:[{weight:40,reps:15},{weight:45,reps:12},{weight:45,reps:12}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:40,reps:15},{weight:45,reps:12},{weight:45,reps:12}] },
+                { name:'Fentes',                  category:'jambes',   sets:[{weight:20,reps:15},{weight:20,reps:15},{weight:20,reps:15}] },
+                { name:'Ab wheel',                category:'abdos',    sets:[{weight:0,reps:12},{weight:0,reps:12},{weight:0,reps:12}] },
+                { name:'Corde à sauter',          category:'cardio',   sets:[{weight:0,reps:50},{weight:0,reps:50}] },
+            ],
+            avance: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:70,reps:15},{weight:75,reps:15},{weight:80,reps:12},{weight:80,reps:12}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:80,reps:12},{weight:85,reps:12},{weight:90,reps:10}] },
+                { name:'Hip thrust',              category:'jambes',   sets:[{weight:90,reps:15},{weight:100,reps:12},{weight:100,reps:12}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:60,reps:15},{weight:65,reps:12},{weight:70,reps:12}] },
+                { name:'Tractions',               category:'dos',      sets:[{weight:0,reps:12},{weight:0,reps:10},{weight:0,reps:10}] },
+                { name:'Russian twist',           category:'abdos',    sets:[{weight:10,reps:20},{weight:10,reps:20},{weight:10,reps:20}] },
+                { name:'Burpees',                 category:'cardio',   sets:[{weight:0,reps:20},{weight:0,reps:20},{weight:0,reps:20}] },
+            ],
+        },
+        force: {
+            debutant: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5},{weight:40,reps:5}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:50,reps:5},{weight:50,reps:5},{weight:50,reps:5}] },
+            ],
+            intermediaire: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:90,reps:5},{weight:95,reps:5},{weight:100,reps:5},{weight:100,reps:5},{weight:100,reps:5}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:80,reps:5},{weight:85,reps:5},{weight:90,reps:5},{weight:90,reps:5},{weight:90,reps:5}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:110,reps:5},{weight:120,reps:4},{weight:130,reps:3}] },
+                { name:'Développé militaire',     category:'epaules',  sets:[{weight:50,reps:5},{weight:55,reps:5},{weight:55,reps:5}] },
+            ],
+            avance: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:140,reps:3},{weight:150,reps:3},{weight:160,reps:2},{weight:170,reps:1},{weight:160,reps:3}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:120,reps:3},{weight:130,reps:2},{weight:140,reps:1},{weight:130,reps:3}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:160,reps:3},{weight:180,reps:2},{weight:200,reps:1}] },
+                { name:'Développé militaire',     category:'epaules',  sets:[{weight:80,reps:3},{weight:85,reps:3},{weight:90,reps:2}] },
+            ],
+        },
+        endurance: {
+            debutant: [
+                { name:'Tapis de course',         category:'cardio',   sets:[{weight:0,reps:20},{weight:0,reps:20},{weight:0,reps:20}] },
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:20,reps:20},{weight:20,reps:20},{weight:20,reps:20}] },
+                { name:'Pompes',                  category:'poitrine', sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:15}] },
+                { name:'Crunch',                  category:'abdos',    sets:[{weight:0,reps:25},{weight:0,reps:25},{weight:0,reps:25}] },
+                { name:'Vélo elliptique',         category:'cardio',   sets:[{weight:0,reps:30},{weight:0,reps:30}] },
+            ],
+            intermediaire: [
+                { name:'Rameur',                  category:'cardio',   sets:[{weight:0,reps:30},{weight:0,reps:30},{weight:0,reps:30}] },
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:40,reps:20},{weight:40,reps:20},{weight:40,reps:20},{weight:40,reps:20}] },
+                { name:'Tractions',               category:'dos',      sets:[{weight:0,reps:10},{weight:0,reps:10},{weight:0,reps:10}] },
+                { name:'Fentes',                  category:'jambes',   sets:[{weight:15,reps:20},{weight:15,reps:20},{weight:15,reps:20}] },
+                { name:'Burpees',                 category:'cardio',   sets:[{weight:0,reps:20},{weight:0,reps:20},{weight:0,reps:20}] },
+                { name:'Planche',                 category:'abdos',    sets:[{weight:0,reps:30},{weight:0,reps:30},{weight:0,reps:30}] },
+            ],
+            avance: [
+                { name:'Rameur',                  category:'cardio',   sets:[{weight:0,reps:40},{weight:0,reps:40},{weight:0,reps:40},{weight:0,reps:40}] },
+                { name:'Tractions',               category:'dos',      sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:12},{weight:0,reps:12}] },
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:60,reps:20},{weight:60,reps:20},{weight:65,reps:18},{weight:65,reps:18}] },
+                { name:'Dips',                    category:'poitrine', sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:15}] },
+                { name:'Burpees',                 category:'cardio',   sets:[{weight:0,reps:25},{weight:0,reps:25},{weight:0,reps:25}] },
+                { name:'Ab wheel',                category:'abdos',    sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:15}] },
+            ],
+        },
+        remise_en_forme: {
+            debutant: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:20,reps:12},{weight:20,reps:12},{weight:20,reps:12}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:20,reps:12},{weight:20,reps:12},{weight:20,reps:12}] },
+                { name:'Tirage poitrine',         category:'dos',      sets:[{weight:25,reps:12},{weight:25,reps:12},{weight:25,reps:12}] },
+                { name:'Développé militaire',     category:'epaules',  sets:[{weight:15,reps:12},{weight:15,reps:12},{weight:15,reps:12}] },
+                { name:'Curl haltères',           category:'bras',     sets:[{weight:8,reps:12},{weight:8,reps:12},{weight:8,reps:12}] },
+                { name:'Crunch',                  category:'abdos',    sets:[{weight:0,reps:15},{weight:0,reps:15},{weight:0,reps:15}] },
+            ],
+            intermediaire: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:50,reps:12},{weight:55,reps:12},{weight:60,reps:10}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:50,reps:12},{weight:55,reps:10},{weight:55,reps:10}] },
+                { name:'Rowing haltère',          category:'dos',      sets:[{weight:20,reps:12},{weight:22,reps:12},{weight:24,reps:10}] },
+                { name:'Hip thrust',              category:'jambes',   sets:[{weight:60,reps:12},{weight:65,reps:12},{weight:70,reps:10}] },
+                { name:'Élévations latérales',    category:'epaules',  sets:[{weight:10,reps:15},{weight:10,reps:15},{weight:12,reps:12}] },
+                { name:'Planche',                 category:'abdos',    sets:[{weight:0,reps:30},{weight:0,reps:30},{weight:0,reps:30}] },
+            ],
+            avance: [
+                { name:'Squat barre',             category:'jambes',   sets:[{weight:80,reps:10},{weight:85,reps:10},{weight:90,reps:8},{weight:90,reps:8}] },
+                { name:'Développé couché',        category:'poitrine', sets:[{weight:75,reps:10},{weight:80,reps:8},{weight:85,reps:8}] },
+                { name:'Soulevé de terre',        category:'dos',      sets:[{weight:100,reps:8},{weight:110,reps:6},{weight:120,reps:5}] },
+                { name:'Hip thrust',              category:'jambes',   sets:[{weight:90,reps:12},{weight:100,reps:10},{weight:100,reps:10}] },
+                { name:'Développé militaire',     category:'epaules',  sets:[{weight:50,reps:10},{weight:55,reps:8},{weight:60,reps:8}] },
+                { name:'Tractions',               category:'dos',      sets:[{weight:0,reps:10},{weight:0,reps:10},{weight:0,reps:8}] },
+                { name:'Ab wheel',                category:'abdos',    sets:[{weight:0,reps:12},{weight:0,reps:12},{weight:0,reps:12}] },
+            ],
+        },
+    };
+
+    // Charge la séance suggérée à l'utilisateur
+    async function loadRecommendedSession() {
+        const goal  = USER_GOAL  || 'remise_en_forme';
+        const level = USER_LEVEL || 'debutant';
+        const seance = SEANCES[goal]?.[level] || SEANCES.remise_en_forme.debutant;
+
+        // Demande confirmation si l'utilisateur a déjà des exercices en cours
+        if (exercises.length > 0) {
+            if (!confirm(`Remplacer la séance en cours par ta séance recommandée (${seance.length} exercices) ?`)) return;
+            // Supprimer les exercices actuels de la base de données
+            await Promise.all(exercises.map(e => fetch('/taches/' + e._id, { method:'DELETE' })));
+        }
+
+        // Ajoute tous les exercices de la séance recommandée
+        const btn = document.querySelector('button[onclick="loadRecommendedSession()"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Chargement...'; }
+
+        await Promise.all(seance.map(ex =>
+            fetch('/taches', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    name: ex.name,
+                    category: ex.category,
+                    sets: ex.sets.map(s => ({ ...s, done: false }))
+                })
+            })
+        ));
+
+        await fetchExercises();
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Ma séance'; }
+    }
+
+  
+    // APPELS API 
+    
+    
+    // Récupérer les exercices et l'historique depuis le backend
+    async function fetchExercises() {
+        try {
+            const res  = await fetch('/taches');
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            exercises = data.taches || [];
+            perfData  = data.performance || [];
+            renderExercises();
+            renderChart(exercises, perfData);
+            updateChartExoSelect();
+        } catch(e) {
+            console.error(e);
+            document.getElementById('exerciseList').innerHTML =
+                `<div class="flex items-center justify-center py-10 text-red-400 gap-2 text-sm"><i class="ph ph-warning text-xl"></i> Erreur de chargement</div>`;
+        }
+    }
+
+    // Ajouter un nouvel exercice manuellement
+    async function addExercise() {
+        const sel = document.getElementById('exoSelect');
+        if (!sel.value) { sel.focus(); return; }
+        const [name, category] = sel.value.split('|');
+        // Structure standard de 4 séries par défaut
+        const sets = [{weight:0,reps:10,done:false},{weight:0,reps:10,done:false},{weight:0,reps:10,done:false},{weight:0,reps:10,done:false}];
+        
+        try {
+            const res = await fetch('/taches', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ name, category, sets })
+            });
+            if (!res.ok) throw new Error(res.status);
+            sel.value = '';
+            fetchExercises();
+        } catch(e) { console.error(e); alert('Erreur lors de l\'ajout.'); }
+    }
+
+
+    // MISE À JOUR DE L'INTERFACE UTILISATEUR (UI)
+
+
+    // Actualiser la barre de progression globale
+    function updateProgress() {
+        const allSets  = exercises.flatMap(e => e.sets || []);
+        const doneSets = allSets.filter(s => s.done).length;
+        const pct = allSets.length ? Math.round(doneSets / allSets.length * 100) : 0;
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressText').textContent = doneSets + ' / ' + allSets.length + ' séries';
+    }
+
+    // Générer et afficher les cartes d'exercices
+    function renderExercises() {
+        const list = document.getElementById('exerciseList');
+        updateProgress();
+        if (!exercises.length) {
+            list.innerHTML = `<div class="flex flex-col items-center py-12 text-slate-600 gap-2">
+                <i class="ph-fill ph-barbell text-5xl"></i>
+                <p class="text-sm">Sélectionne un exercice pour commencer</p></div>`;
+            return;
+        }
+        list.innerHTML = '';
+        exercises.forEach(ex => {
+            const card = document.createElement('div');
+            card.className = 'exo-card rounded-2xl p-4 fade-in';
+            const allDone = ex.sets.every(s => s.done);
+            const cc = catColor[ex.category] || catColor.autre;
+
+            // Calculer le record personnel (PR)
+            const exoPerf = perfData.filter(p => p.name === ex.name);
+            const maxPR   = exoPerf.length ? Math.max(...exoPerf.map(p => p.weight || 0)) : null;
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="font-bold text-sm text-slate-100 truncate">${ex.name}</span>
+                        <span class="cat-badge ${cc} hidden sm:inline">${ex.category}</span>
+                        ${maxPR ? `<span class="text-[10px] text-yellow-400 font-bold mono ml-1">PR ${maxPR}kg</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button onclick="addSet('${ex._id}')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-all">
+                            <i class="ph ph-plus text-xs"></i> Série
+                        </button>
+                        <button onclick="deleteExercise('${ex._id}')" class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                            <i class="ph ph-trash text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rounded-xl overflow-hidden border border-slate-700/30">
+                    <div class="grid grid-cols-[32px_1fr_1fr_1fr_36px] gap-2 px-3 py-1.5 bg-slate-800/50">
+                        <span class="text-[10px] text-slate-500 mono font-bold text-center">#</span>
+                        <span class="text-[10px] text-slate-500 mono font-bold text-center">KG</span>
+                        <span class="text-[10px] text-slate-500 mono font-bold text-center">REPS</span>
+                        <span class="text-[10px] text-slate-500 mono font-bold text-center">VOL</span>
+                        <span></span>
+                    </div>
+                    <div id="sets-${ex._id}" class="divide-y divide-slate-700/20">
+                        ${renderSetsHTML(ex)}
+                    </div>
+                </div>
+
+                ${allDone && ex.sets.length ? `
+                <div class="mt-2 flex items-center gap-2 text-xs text-cyan-400 font-bold">
+                    <i class="ph-fill ph-check-circle"></i>
+                    Terminé · ${ex.sets.reduce((s,r)=>s+r.reps,0)} reps · ${ex.sets.reduce((s,r)=>s+(r.weight*r.reps),0)} kg volume
+                </div>` : ''}
+            `;
+            list.appendChild(card);
+        });
+    }
+
+    // Créer le HTML spécifique pour les lignes de chaque série (sets)
+    function renderSetsHTML(ex) {
+        return (ex.sets || []).map((s, i) => `
+            <div class="set-row ${s.done ? 'set-done' : ''} grid grid-cols-[32px_1fr_1fr_1fr_36px] gap-2 px-3 py-2 items-center" id="setrow-${ex._id}-${i}">
+                <span class="text-[11px] text-slate-500 mono font-bold text-center">${i+1}</span>
+                <input type="number" min="0" step="2.5" value="${s.weight||0}"
+                    class="set-input w-full py-1.5 text-sm"
+                    onchange="updateSet('${ex._id}',${i},'weight',this.value)"
+                    placeholder="0">
+                <input type="number" min="1" value="${s.reps||10}"
+                    class="set-input w-full py-1.5 text-sm"
+                    onchange="updateSet('${ex._id}',${i},'reps',this.value)"
+                    placeholder="10">
+                <span class="text-[11px] text-slate-400 mono text-center font-bold" id="vol-${ex._id}-${i}">
+                    ${s.weight && s.reps ? Math.round(s.weight * s.reps) + ' kg' : '—'}
+                </span>
+                <button onclick="toggleSet('${ex._id}',${i})"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg transition-all ${s.done ? 'text-cyan-400 bg-cyan-400/15' : 'text-slate-600 hover:text-cyan-400'}">
+                    <i class="${s.done ? 'ph-fill ph-check-circle' : 'ph ph-circle'} text-lg"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+   
+    // ÉTAPE 3.5 : INTERACTIONS AVEC LES SÉRIES (SETS)
+   
+
+    // Met à jour un champ (poids ou reps) sans sauvegarder immédiatement, affiche juste le volume actualisé
+    function updateSet(exId, setIdx, field, value) {
+        const ex = exercises.find(e => e._id === exId);
+        if (!ex) return;
+        ex.sets[setIdx][field] = parseFloat(value) || 0;
+        const s = ex.sets[setIdx];
+        const volEl = document.getElementById('vol-' + exId + '-' + setIdx);
+        if (volEl) volEl.textContent = s.weight && s.reps ? Math.round(s.weight * s.reps) + ' kg' : '—';
+    }
+
+    // Valider ou annuler une série (enregistre en base de données)
+    async function toggleSet(exId, setIdx) {
+        const ex = exercises.find(e => e._id === exId);
+        if (!ex) return;
+        ex.sets[setIdx].done = !ex.sets[setIdx].done;
+        try {
+            const res = await fetch('/taches/' + exId, {
+                method:'PUT', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ sets: ex.sets })
+            });
+            if (!res.ok) throw new Error(res.status);
+            const updated = await res.json();
+            const idx = exercises.findIndex(e => e._id === exId);
+            exercises[idx] = updated;
+            perfData = (await (await fetch('/taches')).json()).performance || perfData;
+            renderExercises();
+            renderChart(exercises, perfData);
+        } catch(e) { console.error(e); }
+    }
+
+    // Ajouter une nouvelle ligne de série à l'exercice
+    async function addSet(exId) {
+        const ex = exercises.find(e => e._id === exId);
+        if (!ex) return;
+        
+        // Copie les infos de la dernière série comme point de départ
+        const last = ex.sets[ex.sets.length - 1] || { weight:0, reps:10 };
+        ex.sets.push({ weight: last.weight, reps: last.reps, done: false });
+        
+        try {
+            await fetch('/taches/' + exId, {
+                method:'PUT', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ sets: ex.sets })
+            });
+            fetchExercises();
+        } catch(e) { console.error(e); }
+    }
+
+    // Supprimer un exercice complètement
+    window.deleteExercise = async (id) => {
+        if (!confirm('Supprimer cet exercice ?')) return;
+        await fetch('/taches/' + id, { method:'DELETE' });
+        fetchExercises();
+    };
+
+    
+    //  GRAPHIQUE D'ÉVOLUTION (CHART.JS)
+    
+
+    // Actualiser le sélecteur d'exercices avec ceux possédant un historique
+    function updateChartExoSelect() {
+        const sel  = document.getElementById('chartExoSelect');
+        const prev = sel.value;
+        const names = [...new Set(perfData.map(p => p.name))].sort();
+
+        sel.innerHTML = '<option value="">— Choisir un exercice à analyser —</option>' +
+            names.map(n => `<option value="${n}" ${n===prev?'selected':''}>${n}</option>`).join('');
+
+        // Sélection automatique du premier s'il y en a un
+        if (!prev && names.length) sel.value = names[0];
+    }
+
+    // Regrouper l'historique de performance par jour pour tracer les points
+    function groupPerfBySession(name) {
+        const entries = perfData.filter(p => p.name === name);
+        const byDay   = {};
+        entries.forEach(p => {
+            const key = new Date(p.date).toDateString();
+            if (!byDay[key]) byDay[key] = { date: new Date(p.date), weights: [], reps: [] };
+            byDay[key].weights.push(p.weight || 0);
+            byDay[key].reps.push(p.reps || 0);
+        });
+        
+        return Object.values(byDay)
+            .sort((a,b) => a.date - b.date)
+            .map(d => ({
+                date:      d.date,
+                label:     d.date.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' }),
+                maxWeight: Math.max(...d.weights),
+                totalReps: d.reps.reduce((a,b)=>a+b, 0),
+                tonnage:   d.weights.reduce((s,w,i) => s + w * d.reps[i], 0)
+            }));
+    }
+
+    // Dessiner et mettre à jour le graphique
+    function renderChart(exs, perf) {
+        const name = document.getElementById('chartExoSelect')?.value || '';
+        const hint = document.getElementById('chartHint');
+
+        // S'il n'y a pas d'exercice sélectionné, cacher le graphique
+        if (!name) {
+            hint.style.display = 'block';
+            if (myChart) { myChart.destroy(); myChart = null; }
+            document.getElementById('kpiPR').textContent   = '—';
+            document.getElementById('kpiLast').textContent = '—';
+            document.getElementById('kpiTrend').textContent= '—';
+            return;
+        }
+        hint.style.display = 'none';
+
+        const sessions = groupPerfBySession(name);
+
+        // Injecter en temps réel les données du jour si l'exercice est en cours
+        const todayStr = new Date().toDateString();
+        const curSets  = exs.filter(e => e.name === name).flatMap(e => (e.sets||[]).filter(s=>s.done));
+        const alreadyToday = sessions.length && sessions[sessions.length-1].date.toDateString() === todayStr;
+        
+        if (curSets.length && !alreadyToday) {
+            sessions.push({
+                date:      new Date(),
+                label:     "Auj.",
+                maxWeight: Math.max(...curSets.map(s=>s.weight||0)),
+                totalReps: curSets.reduce((a,s)=>a+(s.reps||0),0),
+                tonnage:   curSets.reduce((a,s)=>a+(s.weight||0)*(s.reps||0),0)
+            });
+        }
+
+        // Limiter aux 8 dernières séances pour la lisibilité
+        const display = sessions.slice(-8);
+        const labels  = display.map(s => s.label);
+
+        // Préparer les données en fonction de l'onglet actif
+        const metricMap = {
+            maxweight: { data: display.map(s=>s.maxWeight), unit:'kg',   color:['#06b6d4','rgba(6,182,212,0.15)'] },
+            volume:    { data: display.map(s=>s.totalReps), unit:'reps', color:['#a855f7','rgba(168,85,247,0.15)'] },
+            tonnage:   { data: display.map(s=>Math.round(s.tonnage)), unit:'kg', color:['#f59e0b','rgba(245,158,11,0.15)'] }
+        };
+        const m = metricMap[currentTab] || metricMap.maxweight;
+
+        // Mise à jour des petits indicateurs sous le graphique (PR, Dernière perf, etc.)
+        const pr   = sessions.length ? Math.max(...sessions.map(s=>s.maxWeight)) : null;
+        const last = display.length  ? m.data[m.data.length-1] : null;
+        const prev = display.length > 1 ? m.data[m.data.length-2] : null;
+        const trend = last === null ? '—' : prev === null ? '→' : last > prev ? '↑' : last < prev ? '↓' : '→';
+        const tc    = trend==='↑' ? 'text-emerald-400' : trend==='↓' ? 'text-red-400' : 'text-slate-400';
+
+        document.getElementById('kpiPR').textContent    = pr   !== null ? pr   + ' kg' : '—';
+        document.getElementById('kpiLast').textContent  = last !== null ? last + ' ' + m.unit : '—';
+        document.getElementById('kpiTrend').textContent = trend;
+        document.getElementById('kpiTrend').className   = 'text-sm font-black ' + tc;
+
+        // Configuration du style des points (Met en valeur le PR)
+        const prVal   = Math.max(...m.data);
+        const ptColors = m.data.map((v,i) => i === m.data.length-1 ? m.color[0] : m.color[1].replace('0.15','0.5'));
+        const ptRadius = m.data.map(v => v === prVal ? 6 : 3);
+
+        // Mise à jour de l'instance du graphique si elle existe déjà
+        if (myChart) {
+            myChart.data.labels                          = labels;
+            myChart.data.datasets[0].data               = m.data;
+            myChart.data.datasets[0].borderColor         = m.color[0];
+            myChart.data.datasets[0].pointBackgroundColor= ptColors;
+            myChart.data.datasets[0].pointRadius         = ptRadius;
+            myChart.data.datasets[0].backgroundColor     = m.color[1];
+            myChart.update();
+            return;
+        }
+
+        // Sinon on crée un nouveau graphique Chart.js
+        const ctx = document.getElementById('evolutionChart').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    data: m.data,
+                    borderColor: m.color[0],
+                    backgroundColor: m.color[1],
+                    borderWidth: 2.5,
+                    tension: 0.35,
+                    fill: true,
+                    pointBackgroundColor: ptColors,
+                    pointBorderColor:     m.color[0],
+                    pointRadius:          ptRadius,
+                    pointHoverRadius:     7
+                }]
+            },
+            options: {
+                responsive:true, maintainAspectRatio:false,
+                plugins: {
+                    legend: { display:false },
+                    tooltip: {
+                        backgroundColor:'rgba(7,13,26,0.95)',
+                        borderColor:'rgba(71,85,105,0.3)', borderWidth:1,
+                        titleColor:'#e2e8f0', bodyColor:'#94a3b8', padding:10,
+                        callbacks: {
+                            title: items => display[items[0].dataIndex]?.date
+                                .toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}) || '',
+                            label: ctx => ' ' + ctx.raw + ' ' + m.unit +
+                                (ctx.raw === prVal ? '  🏆 PR' : '')
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid:{display:false}, ticks:{color:'#475569', font:{size:10, family:'Space Mono'}} },
+                    y: {
+                        grid:{color:'rgba(71,85,105,0.1)'},
+                        ticks:{color:'#475569', font:{size:9}, maxTicksLimit:4},
+                        beginAtZero:false,
+                        suggestedMin: m.data.length ? Math.min(...m.data) * 0.9 : 0
+                    }
+                }
+            }
+        });
+    }
+
+    // Gère le changement d'onglet (Poids Max, Volume, Tonnage)
+    window.switchChart = function(tab) {
+        currentTab = tab;
+        ['maxweight','volume','tonnage'].forEach(t => {
+            const btn = document.getElementById('tab-'+t);
+            if (!btn) return;
+            btn.className = 'chart-tab ' + (t===tab ? 'active font-bold' : '') + ' px-2 py-1 text-[10px]';
+        });
+        if (myChart) { myChart.destroy(); myChart = null; }
+        renderChart(exercises, perfData);
+    };
+
+    
+    // CHAT EN TEMPS RÉEL (SOCKET.IO)
+   
+    try {
+        const socket      = io();
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput    = document.getElementById('chatInput');
+
+        // Charger l'historique des messages à la connexion
+        socket.on('load messages', (messages) => {
+            messages.forEach(msg => appendMessage(msg.user, msg.text, false));
+        });
+
+        // Recevoir un message en temps réel depuis un autre utilisateur
+        socket.on('chat message', (msg) => {
+            appendMessage(msg.user, msg.text, msg.id === socket.id);
+        });
+
+        // Fonction pour injecter le message dans la fenêtre de chat
+        function appendMessage(user, text, isMe) {
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 ' + (isMe ? 'flex-row-reverse' : '') + ' fade-in';
+            div.innerHTML = `
+                <div class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-black ${isMe ? 'bg-cyan-500 text-slate-900' : 'bg-red-500 text-white'}">
+                    ${(user||'BRO').substring(0,3).toUpperCase()}
+                </div>
+                <div class="${isMe ? 'bg-cyan-500/10 border-cyan-500/20 rounded-tr-sm' : 'bg-slate-700/40 border-slate-600/40 rounded-tl-sm'} border rounded-xl px-3 py-2 max-w-[80%] leading-relaxed">
+                    ${text}
+                </div>`;
+            chatMessages.appendChild(div);
+            // Toujours scroller tout en bas
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Envoyer le message
+        document.getElementById('chatForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = chatInput.value.trim();
+            if (val) {
+                socket.emit('chat message', { user: USERNAME, text: val });
+                chatInput.value = '';
+            }
+        });
+    } catch(e) { console.warn('Socket.io non disponible pour le chat'); }
+
+  
+    // LANCEMENT DES FONCTIONNALITÉS
+   
+    fetchExercises();
+    </script>
+</body>
+</html>
